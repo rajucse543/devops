@@ -1,0 +1,26 @@
+#!/bin/bash
+apt-get install -y build-essential tcl
+cd /tmp
+curl -O http://download.redis.io/redis-stable.tar.gz
+tar xzvf redis-stable.tar.gz
+cd redis-stable
+make
+make test
+mkdir /etc/redis
+cp /tmp/redis-stable/redis.conf /etc/redis
+vi /etc/redis/redis.conf
+vi /etc/systemd/system/redis.service
+adduser --system --group --no-create-home redis
+mkdir /var/lib/redis
+chown redis:redis /var/lib/redis
+chmod 770 /var/lib/redis
+systemctl start redis
+redis-cli
+
+
+sed -e '/^supervised no/supervised systemd/' \
+    -e 's/^# *bind 127\.0\.0\.1 ::1/bind 127.0.0.1 ::1' \
+    /etc/redis/redis.conf >/etc/redis/redis.conf.new
+
+
+https://www.servermania.com/kb/articles/redis-ubuntu-install/#:~:text=Redis%20Quick%20Installation.%201%20Step%201%3A%20Login%20to,Step%205%3A%20Set%20the%20correct%20permissions.%20More%20items

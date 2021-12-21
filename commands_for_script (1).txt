@@ -1,0 +1,73 @@
+grub config:
+==============================================
+# /etc/default/grub
+GRUB_CMDLINE_LINUX="default_hugepagesz=1G hugepagesz=1G hugepages=8 intel_iommu=on iommu=pt"
+
+dpdk setup:
+=======================
+sudo apt-get install libpcap-dev
+sudo apt-get install linux-headers-3.5.0-32-generic
+export RTE_SDK=/home/attcloud/dpdk/dpdk-stable-19.08.2
+
+export RTE_TARGET=x86_64-native-linuxapp-gcc
+
+sudo apt-get install libnuma-dev
+download dpdk19.08 from https://core.dpdk.org/download/
+
+make config T=x86_64-native-linuxapp-gcc
+
+make install T=x86_64-native-linuxapp-gcc
+
+
+sudo modprobe vfio-pci
+sudo modprobe vfio-pci enable_sriov=1
+./usertools/dpdk-devbind.py -b vfio-pci 0000:86:00.0 --->this port will be based on dpdk-devbind.py --status output
+
+check IOMMU available in system, if not available load with below commands:
+modprobe vfio enable_unsafe_noiommu_mode=1
+echo 1 > /sys/module/vfio/parameters/enable_unsafe_noiommu_mode
+
+
+
+hugepages:
+==============================================
+ grep -i huge /proc/meminfo
+check with following command:
+$ grep -i huge /boot/config-2.6.35-24-generic
+CONFIG_HUGETLBFS=y
+CONFIG_HUGETLB_PAGE=y
+
+$ sudo vi /etc/sysctl.conf
+Add to the bottom of the file:
+vm.nr_hugepages=256
+
+sudo vi /etc/sysctl.conf  -->set hugepage size
+
+$ sudo vi /etc/fstab
+Add to the bottom of the file:
+huge /mnt/huge hugetlbfs defaults 0 0
+
+$ sudo mkdir /mnt/huge
+$ sudo chmod 777 /mnt/huge
+
+
+vpp setup:
+======================================
+git clone --depth 1 --branch v19.08 https://gerrit.fd.io/r/vpp
+cd vpp
+$ dpkg -l | grep vpp
+$ dpkg -l | grep DPDK
+make install-dep
+modify startup.conf file under build-tools directory
+with dpdk enabled and dpdk port set
+make build
+make pkg-deb
+make run --->start vpp
+
+pktgen:
+=========================
+sudo apt-get install lua
+download pktgen 19.12
+$ cd <PktgenInstallDir>
+$ make
+sudo ./app/pktgen -l 0-4 -n 3 -- -P -m "[1:3].0" -->start pktgen
