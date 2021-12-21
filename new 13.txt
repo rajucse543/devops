@@ -1,0 +1,102 @@
+#!/bin/sh
+# ********************************************************************
+# Name    : install_messaging.lib
+# Date    : 06/10/2021
+# Revision: 0.1
+           # Purpose : Installs and configures the Messaging subsystem.
+#
+# Usage   : source install_messaging.lib
+#
+# ********************************************************************
+
+# Ensure script is sourced and not executed
+[[ "${BASH_SOURCE[0]}" = "${0}" ]] && { echo "${0} must be sourced, NOT executed"  ; exit 1; }
+
+# Ensure file is only sourced once
+[ -n "$INSTALL_MESSAGING_SOURCED" ]  && return
+export INSTALL_MESSAGING_SOURCED=true
+
+function configure_messaging(){
+    log INFO "Installing and Configuring Kafka Broker"
+c= `java -version`
+log INFO "java version is:" $c
+
+if [ ! -f $BIN_DIR/$KAFKA_BIN_PATH ]; then
+ log ERROR "Kafa installables not found"
+exit 1
+fi
+
+tar -xvzf $BIN_DIR/$KAFKA_BIN_PATH $OPT/
+
+
+log INFO "Starting Zookeepr service"
+[Unit]
+Requires=network.target remote-fs.target
+After=network.target remote-fs.target
+
+sudo echo "[Unit]
+Description=Zookeeper
+Wants=network-online.target
+After=network-online.target
+
+
+[Service]
+Type=simple
+User=kafka
+ExecStart=./$KAFKA_BIN/zookeeper-server-start.sh $KAFKA_CONFIG/zookeeper.properties > /dev/null 2>&1 &
+ExecStop=/home/kafka/kafka/bin/zookeeper-server-stop.sh
+Restart=on-abnormal
+
+[Install]
+WantedBy=multi-user.target" > /etc/systemd/system/zookeeper.service
+
+#Zookeeper service will run in the backgorund and wait for 1 minutes to come up
+nohup ./$KAFKA_BIN/zookeeper-server-start.sh $KAFKA_CONFIG/zookeeper.properties > /dev/null 2>&1 &
+sleep 1m
+
+log INFO "Starting Kafka server...."
+[Unit]
+Requires=zookeeper.service
+After=zookeeper.service
+
+[Service]
+Type=simple
+User=kafka
+ExecStart=/bin/sh -c $KAFKA_BIN/kafka-server-start.sh $KAFKA_CONFIG/config/server.properties >  /dev/null 2>&1 &
+ExecStop=/home/kafka/kafka/bin/kafka-server-stop.sh
+Restart=on-abnormal
+
+[Install]
+WantedBy=multi-user.target" > /etc/systemd/system/kafka.service
+
+#Kafka service will run in the backgorund and wait for 1 minutes to come up
+nohup ./$KAFKA_BIN/kafka-server-start.sh $KAFKA_CONFIG/config/server.properties >  /dev/null 2>&1 &
+
+sleep 1m
+
+
+for topic in"${TOPICS[@]}"; do
+
+    log INFO "Creating Topic $topic"
+	
+  ./$KAFKA_BIN/kafka-topics.sh --create --bootstrap-server $HOST:$KAFKA_PORT --replication-factor 1 --partitions 1 --topic $topic
+
+done
+
+log INFO "Kafka installed and configured...."
+
+	
+	
+	
+	
+	
+	
+
+}
+
+function install_messaging(){
+
+   configure_messaging
+
+
+}
