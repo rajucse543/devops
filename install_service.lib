@@ -1,0 +1,143 @@
+#!/bin/sh
+# ********************************************************************
+# Name    : install_services.lib
+# Date    : 06/10/2021
+# Revision: 0.1
+           # Purpose : Installs and configures the Services.
+#
+# Usage   : source install_services.lib
+#
+# ********************************************************************
+
+# Ensure script is sourced and not executed
+[[ "${BASH_SOURCE[0]}" = "${0}" ]] && { echo "${0} must be sourced, NOT executed"  ; exit 1; }
+
+# Ensure file is only sourced once
+[ -n "$INSTALL_SERVICES_SOURCED" ]  && return
+export INSTALL_SERVICES_SOURCED=true
+
+
+if [ $# -eq 0 ]
+then
+           PATH_TO_TAR_FILE=/home/attcloud/npbc-inst/media/
+           log INFO "No command line arguments using default path for tar.gz files: $PATH_TO_TAR_FILE"
+else
+           PATH_TO_TAR_FILE=$1
+           log INFO "Path for tar.gz files set via command line: $PATH_TO_TAR_FILE"
+fi
+
+function create_directories {
+        log INFO "Creating required directories"
+        mkdir -p  $FILEMGT_DIR
+        mkdir -p  $EVENTPRO_DIR
+        mkdir -p  $NPBPROG_DIR
+        mkdir -p  $NPBC_LOG
+        mkdir -p  $NPBCPROG_DATA
+        chown -R npbc-admin $NPBC_OPT_DIR
+        chown -R npbc-admin $NPBC_LOG
+        chown -R npbc-admin $NPBC_DIR
+		}
+
+function unzip_and_copy {
+
+    TAR_FILE="${PATH_TO_TAR_FILE}${FILTER_MGMT_TAR_FILE_NAME}.tar.gz"
+    tar -xvf $TAR_FILE -C $FILEMGT_DIR
+    log INFO "Extracted $TAR_FILE tar file"
+
+    TAR_FILE="${PATH_TO_TAR_FILE}${EVENT_PROC_TAR_FILE_NAME}.tar.gz"
+    tar -xvf $TAR_FILE -C $EVENTPRO_DIR
+    log INFO "Extracted $TAR_FILE tar file"
+
+    TAR_FILE="${PATH_TO_TAR_FILE}${NPB_PROG_TAR_FILE_NAME}.tar.gz"
+    tar -xvf $TAR_FILE -C $NPBPROG_DIR
+    log INFO "Extracted $TAR_FILE tar file"
+
+
+    cp /opt/npbc/cm/filtermgmt/conf/filtermgmt.service /etc/systemd/system/
+    cp /opt/npbc/cm/eventpro/conf/eventpro.service /etc/systemd/system/
+    cp /opt/npbc/cm/npbprog/conf/npbprog.service /etc/systemd/system/
+    chown -R npbc-admin /opt/npbc
+
+
+
+
+sed -i -E "/^server:/,/port:/ s/(port:).*/\1 ${npbprogserverport}/;" $npbprogyaml
+sed -i -E "/^server:/,/enabled:/ s/(enabled:).*/\1 ${sslenabled}/;" $npbprogyaml
+sed -i -E "/^server:/,/key-store:/ s/(key-store:).*/\1 ${sslkeystore}/;" $npbprogyaml
+sed -i -E "/^server:/,/key-store-type:/ s/(key-store-type:).*/\1 ${sslkeystoretype}/;" $npbprogyaml
+sed -i -E "/^server:/,/key-store-password:/ s|(key-store-password:).*|\1 ${sslkeystorepassword}|;" $npbprogyaml
+sed -i -E "/^server:/,/key-password:/ s|(key-password:).*|\1 ${sslkeypassword}|;" $npbprogyaml
+sed -i -E "/^server:/,/key-alias:/ s/(key-alias:).*/\1 ${sslkeyalias}/;" $npbprogyaml
+sed -i -E "/^spring:/,/url:/ s|(url:).*|\1 ${springdatasourceurl}|;" $npbprogyaml
+sed -i -E "/^spring:/,/password:/ s|(password:).*|\1 ${springdatasourcepassword}|;" $npbprogyaml
+sed -i -E "/^spring:/,/username:/ s|(username:).*|\1 ${springdatasourceusername}|;" $npbprogyaml
+sed -i -E "/^spring:/,/url:/ s/(url:).*/\1 ${springdatasourceurl}/;" $npbprogyaml
+sed -i -E "/^pinc:/,/userName:/ s|(userName:).*|\1 ${pincuserName}|;" $npbprogyaml
+sed -i -E "/^pinc:/,/password:/ s|(password:).*|\1 ${pincpassword}|;" $npbprogyaml
+                                                                                                                                                     
+sed -i "s|getConfigletUrl:.*|getConfigletUrl: ${getConfigletUrl}|" $npbprogyaml
+sed -i "s|baseConfigUrl:.*|baseConfigUrl: ${baseConfigUrl}|" $npbprogyaml
+sed -i "s|pincStatus:.*|pincStatus: ${pincStatus}|" $npbprogyaml
+sed -i -E "/^server:/,/port:/ s/(port:).*/\1 ${eventproserverport}/;" $eventproyaml
+sed -i -E "/^server:/,/enabled:/ s/(enabled:).*/\1 ${sslenabled}/;" $eventproyaml
+sed -i -E "/^server:/,/key-store:/ s/(key-store:).*/\1 ${sslkeystore}/;" $eventproyaml
+sed -i -E "/^server:/,/key-store-type:/ s/(key-store-type:).*/\1 ${keystoretype}/;" $eventproyaml
+sed -i -E "/^server:/,/key-store-password:/ s|(key-store-password:).*|\1 ${sslkeystorepassword}|;" $eventproyaml
+sed -i -E "/^server:/,/key-password:/ s|(key-password:).*|\1 ${sslkeypassword}|;" $eventproyaml
+sed -i -E "/^server:/,/key-alias:/ s/(key-alias:).*/\1 ${sslkeyalias}/;" $eventproyaml
+sed -i -E "/^spring:/,/url:/ s/( url:).*/\1 ${springdatasourceurl}/;" $eventproyaml
+sed -i -E "/^spring:/,/username:/ s|(username:).*|\1 ${springdatasourceusername}|;" $eventproyaml
+sed -i -E "/^spring:/,/password:/ s|(password:).*|\1 ${springdatasourcepassword}|;" $eventproyaml
+sed -i -E "/^spring:/,/groupId:/ s/(groupId:).*/\1 ${springkafkaconsumergroupId}/;" $eventproyaml
+sed -i -E "/^spring:/,/topic:/ s/(topic:).*/\1 ${springkafkaconsumertopic}/;" $eventproyaml
+sed -i -E "/^spring:/,/bootstrap-servers:/ s/(bootstrap-servers:).*/\1 ${springkafkaconsumerbootstrapservers}/;" $eventproyaml
+sed -i "s|config-url:.*|config-url: ${configurl}|" $eventproyaml
+
+
+sed -i -E "/^server:/,/port:/ s/(port:).*/\1 ${filtermgmtserverport}/;" $filemanagementyaml
+sed -i -E "/^server:/,/enabled:/ s/(enabled:).*/\1 ${sslenabled}/;" $filemanagementyaml
+sed -i -E "/^server:/,/key-store:/ s/(key-store:).*/\1 ${sslkeystore}/;" $filemanagementyaml
+sed -i -E "/^server:/,/key-store-type:/ s/(key-store-type:).*/\1 ${keystoretype}/;" $filemanagementyaml
+sed -i -E "/^server:/,/key-store-password:/ s|(key-store-password:).*|\1 ${sslkeystorepassword}|;" $filemanagementyaml
+sed -i -E "/^server:/,/key-password:/ s|(key-password:).*|\1 ${sslkeypassword}|;" $filemanagementyaml
+sed -i -E "/^server:/,/key-alias:/ s/(key-alias:).*/\1 ${sslkeyalias}/;" $filemanagementyaml
+sed -i -E "/^spring:/,/url:/ s|(url:).*|\1 ${springdatasourceurl}|;" $filemanagementyaml
+sed -i -E "/^spring:/,/username:/ s|(username:).*|\1 ${springdatasourceusername}|;" $filemanagementyaml
+sed -i -E "/^spring:/,/password:/ s|(password:).*|\1 ${springdatasourcepassword}|;" $filemanagementyaml
+sed -i -E "/^configure:/,/url:/ s|(url:).*|\1 ${npbcprogurl}|;" $filemanagementyaml
+sed -i -E "/^kafkaproducer:/,/topic:/ s/(topic:).*/\1 ${kafkaproducertopic}/;" $filemanagementyaml
+sed -i -E "/^kafkaproducer:/,/serverconfig:/ s/(serverconfig:).*/\1 ${kafkaproducerserverconfig}/;" $filemanagementyaml
+sed -i -E "/^keycloak:/,/uri:/ s|(uri:).*|\1 ${idptokenuri}|;" $filemanagementyaml
+sed -i -E "/^keycloak:/,/authuri:/ s|(authuri:).*|\1 ${idptokenauthuri}|;" $filemanagementyaml
+sed -i -E "/^keycloak:/,/realm:/ s/(realm:).*/\1 ${idprealm}/;" $filemanagementyaml
+sed -i -E "/^keycloak:/,/clientid:/ s/(clientid:).*/\1 ${idpclientid}/;" $filemanagementyaml
+sed -i -E "/^keycloak:/,/clientsecret:/ s|(clientsecret:).*|\1 ${idpclientsecret}|;" $filemanagementyaml
+    
+
+}
+function configure_service {
+        log INFO "Starting Filtermgmt service"
+        systemctl daemon-reload
+        systemctl enable filtermgmt
+        systemctl start filtermgmt
+
+        log INFO "Starting Event processing service"
+        systemctl enable eventpro
+        systemctl start eventpro
+
+        log INFO "Starting NPB programming service"
+        systemctl enable npbprog
+        systemctl start npbprog
+}
+function install_microservices(){
+    log INFO "Installing CM Micro Services"
+    create_directories
+    unzip_and_copy
+    configure_service
+}
+function install_services(){
+
+   install_microservices
+
+}
+                                                                                             
